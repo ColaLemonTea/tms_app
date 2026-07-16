@@ -1,5 +1,6 @@
 class AppRoutes {
+  static const String auth = '/auth';
   static const String login = '/login';
+  static const String register = '/register';
   static const String home = '/home';
-// 以后新增页面在这里加
 }

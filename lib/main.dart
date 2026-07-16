@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'presentation/pages/auth_page.dart';
+import 'presentation/pages/login_page.dart';
+import 'presentation/pages/register_page.dart';
 import 'core/routes/app_routes.dart';
 
 void main() {
@@ -21,10 +23,11 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: Colors.white,
         useMaterial3: true,
       ),
-      initialRoute: AppRoutes.login,
+      initialRoute: AppRoutes.auth,
       routes: {
-        AppRoutes.login: (context) => const AuthPage(),
-        // 后续添加 AppRoutes.home: (context) => const HomePage(),
+        AppRoutes.auth: (context) => const AuthPage(),
+        AppRoutes.login: (context) => const LoginPage(),
+        AppRoutes.register: (context) => const RegisterPage(),
       },
       debugShowCheckedModeBanner: false,
     );
