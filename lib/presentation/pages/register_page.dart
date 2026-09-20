@@ -2,7 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../utils/validators.dart';
-import '../../data/services/http_service.dart';
+import '../../data/services/auth_api.dart';
+import '../../core/routes/app_routes.dart';
 
 /// 注册页（自动注册）
 /// - 邮箱 + 验证码
@@ -22,6 +23,8 @@ class _RegisterPageState extends State<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _codeController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
   bool _agreed = false;
   bool _sendingCode = false;
@@ -29,11 +32,14 @@ class _RegisterPageState extends State<RegisterPage> {
   int _countdown = 0;
   Timer? _timer;
   String? _hintText;
+  String? _captchaToken;
 
   /// 输入内容非空 → 按钮可用
   bool get _canSubmit =>
       _emailController.text.trim().isNotEmpty &&
       _codeController.text.isNotEmpty &&
+      _passwordController.text.isNotEmpty &&
+      _confirmPasswordController.text.isNotEmpty &&
       !_submitting;
 
   @override
@@ -41,6 +47,8 @@ class _RegisterPageState extends State<RegisterPage> {
     super.initState();
     _emailController.addListener(_onFieldChanged);
     _codeController.addListener(_onFieldChanged);
+    _passwordController.addListener(_onFieldChanged);
+    _confirmPasswordController.addListener(_onFieldChanged);
   }
 
   void _onFieldChanged() => setState(() {});
@@ -49,6 +57,8 @@ class _RegisterPageState extends State<RegisterPage> {
   void dispose() {
     _emailController.dispose();
     _codeController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     _timer?.cancel();
     super.dispose();
   }
@@ -77,11 +87,18 @@ class _RegisterPageState extends State<RegisterPage> {
     setState(() {
       _sendingCode = true;
       _countdown = 60;
+      _captchaToken = null; // 重新发送时清除旧 token
     });
     _setHint(null);
 
     try {
-      await HttpService.instance.post('/auth/send-code', data: {'email': email});
+      final res = await AuthApi.sendCaptcha(username: email, type: 'email');
+      // 保存验证码 token（注册时需携带）
+      final responseData = res.data;
+      final data = responseData is Map<String, dynamic> ? responseData['data'] : responseData;
+      if (data is Map<String, dynamic>) {
+        _captchaToken = data['token'] as String?;
+      }
       _setHint('验证码已发送至您的邮箱，5 分钟内有效');
     } catch (e) {
       _setHint('发送失败：${e.toString()}');
@@ -130,20 +147,26 @@ class _RegisterPageState extends State<RegisterPage> {
 
     try {
       final email = _emailController.text.trim();
-      final code = _codeController.text.trim();
-      final res = await HttpService.instance.post('/auth/register', data: {
-        'email': email,
-        'code': code,
-      });
+      final password = _passwordController.text;
+      final code = int.tryParse(_codeController.text.trim()) ?? 0;
 
-      final token = res.data?['token'] as String?;
-      if (token != null) {
-        HttpService.setToken(token);
+      if (_captchaToken == null || _captchaToken!.isEmpty) {
+        _setHint('请先获取验证码');
+        setState(() => _submitting = false);
+        return;
       }
+
+      await AuthApi.register(
+        username: email,
+        password: password,
+        token: _captchaToken!,
+        code: code,
+        type: 'email',
+      );
 
       if (!mounted) return;
       _setHint('注册成功！');
-      // TODO: 跳转主页
+      Navigator.of(context).pushReplacementNamed(AppRoutes.home);
     } catch (e) {
       if (!mounted) return;
       _setHint('注册失败：${e.toString()}');
@@ -191,16 +214,30 @@ class _RegisterPageState extends State<RegisterPage> {
                       ),
 
                       SizedBox(height: compact ? 24 : 48),
-
+                      
                       // 标题：注册
-                      const Text(
-                        '注册',
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1A1A1A),
-                        ),
+                      Row(
+                        children: [
+                          Container(
+                            width: 5,
+                            height: 15,
+                            decoration: BoxDecoration(
+                              color: _primaryColor,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Text(
+                            '注册',
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1A1A1A),
+                            ),
+                          ),
+                        ],
                       ),
+                      
                       const SizedBox(height: 8),
                       const Text(
                         '未注册的邮箱验证成功后将自动注册',
@@ -220,6 +257,14 @@ class _RegisterPageState extends State<RegisterPage> {
 
                             // 验证码 + 发送按钮
                             _buildCodeField(),
+                            const SizedBox(height: 14),
+
+                            // 密码
+                            _buildPasswordField(),
+                            const SizedBox(height: 14),
+
+                            // 确认密码
+                            _buildConfirmPasswordField(),
 
                             // 提示信息
                             if (_hintText != null) ...[
@@ -332,32 +377,64 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
+  Widget _buildPasswordField() {
+    return TextFormField(
+      controller: _passwordController,
+      obscureText: true,
+      autocorrect: false,
+      validator: Validators.validatePassword,
+      style: const TextStyle(fontSize: 15, color: Colors.black87),
+      decoration: _inputDecoration(
+        hint: '请设置密码',
+        prefixIcon: Icons.lock_outline,
+      ),
+    );
+  }
+
+  Widget _buildConfirmPasswordField() {
+    return TextFormField(
+      controller: _confirmPasswordController,
+      obscureText: true,
+      autocorrect: false,
+      validator: (v) {
+        if (v == null || v.isEmpty) return '请确认密码';
+        if (v != _passwordController.text) return '两次输入的密码不一致';
+        return null;
+      },
+      style: const TextStyle(fontSize: 15, color: Colors.black87),
+      decoration: _inputDecoration(
+        hint: '请再次输入密码',
+        prefixIcon: Icons.lock_outline,
+      ),
+    );
+  }
+
   InputDecoration _inputDecoration({required String hint, required IconData prefixIcon}) {
     return InputDecoration(
       hintText: hint,
       hintStyle: const TextStyle(color: Color(0xFFB0B7C3), fontSize: 15),
       prefixIcon: Icon(prefixIcon, color: const Color(0xFFB0B7C3), size: 20),
-      filled: true,
+      filled: true,      
       fillColor: _fieldFill,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(15),
         borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(15),
         borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(15),
         borderSide: const BorderSide(color: Color(0xFF2B7BFF), width: 1.4),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(15),
         borderSide: const BorderSide(color: Color(0xFFE54848), width: 1),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(15),
         borderSide: const BorderSide(color: Color(0xFFE54848), width: 1.4),
       ),
     );
@@ -390,7 +467,7 @@ class _PrimaryButton extends StatelessWidget {
           disabledBackgroundColor: const Color(0xFFF2F3F5),
           disabledForegroundColor: const Color(0xFFB0B7C3),
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         ),
         child: Text(
           text,

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../utils/validators.dart';
-import '../../data/services/http_service.dart';
+import '../../data/services/auth_api.dart';
+import '../../data/services/auth_manager.dart';
+import '../../core/routes/app_routes.dart';
 
 /// 登录页
 /// - 邮箱 + 密码 登录
@@ -66,19 +68,27 @@ class _LoginPageState extends State<LoginPage> {
     try {
       final email = _emailController.text.trim();
       final password = _passwordController.text;
-      final res = await HttpService.instance.post('/auth/login', data: {
-        'email': email,
-        'password': password,
-      });
+      final res = await AuthApi.login(username: email, password: password);
 
-      final token = res.data?['token'] as String?;
-      if (token != null) {
-        HttpService.setToken(token);
+      // 统一后端返回格式: { code, message, data }
+      final responseData = res.data;
+      if (responseData is Map<String, dynamic>) {
+        final code = responseData['code'];
+        if (code != 200) {
+          if (!mounted) return;
+          _setHint(responseData['message'] as String? ?? '登录失败');
+          setState(() => _submitting = false);
+          return;
+        }
+        final data = responseData['data'];
+        if (data is Map<String, dynamic>) {
+          AuthManager.instance.setLoginInfo(data);
+        }
       }
 
       if (!mounted) return;
       _setHint('登录成功！');
-      // TODO: 跳转主页
+      Navigator.of(context).pushReplacementNamed(AppRoutes.home);
     } catch (e) {
       if (!mounted) return;
       _setHint('登录失败：${e.toString()}');
@@ -128,17 +138,30 @@ class _LoginPageState extends State<LoginPage> {
                       SizedBox(height: compact ? 24 : 48),
 
                       // 标题：登录
-                      const Text(
-                        '登录',
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1A1A1A),
-                        ),
+                      Row(
+                        children: [
+                          Container(
+                            width: 5,
+                            height: 15,
+                            decoration: BoxDecoration(
+                              color: _primaryColor,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Text(
+                            '登录',
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1A1A1A),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        '请输入您的邮箱和密码',
+                        '请输入您的用户名和密码',
                         style: TextStyle(fontSize: 14, color: Color(0xFF8A94A6)),
                       ),
 
@@ -149,13 +172,11 @@ class _LoginPageState extends State<LoginPage> {
                         key: _formKey,
                         child: Column(
                           children: [
-                            // 邮箱
+                            // 用户名
                             _buildTextField(
                               controller: _emailController,
-                              hint: '请输入邮箱地址',
-                              icon: Icons.alternate_email,
-                              keyboardType: TextInputType.emailAddress,
-                              validator: Validators.validateEmail,
+                              hint: '请输入用户名',
+                              icon: Icons.accessible_forward,
                             ),
                             const SizedBox(height: 14),
 
@@ -241,23 +262,23 @@ class _LoginPageState extends State<LoginPage> {
         fillColor: _fieldFill,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(15),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(15),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(15),
           borderSide: const BorderSide(color: Color(0xFF2B7BFF), width: 1.4),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(15),
           borderSide: const BorderSide(color: Color(0xFFE54848), width: 1),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(15),
           borderSide: const BorderSide(color: Color(0xFFE54848), width: 1.4),
         ),
       ),
@@ -291,7 +312,7 @@ class _PrimaryButton extends StatelessWidget {
           disabledBackgroundColor: const Color(0xFFF2F3F5),
           disabledForegroundColor: const Color(0xFFB0B7C3),
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         ),
         child: Text(
           text,

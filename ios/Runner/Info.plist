@@ -4,6 +4,11 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<!-- ==================== 高德地图定位权限说明 ==================== -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>App 需要获取您的位置以显示地图和导航路线</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>App 需要获取您的位置以在后台持续上报运输轨迹</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

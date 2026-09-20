@@ -7,7 +7,6 @@ class AuthPage extends StatelessWidget {
   const AuthPage({super.key});
 
   static const Color _primaryColor = Color(0xFF2B7BFF);
-  static const Color _accentColor = Color(0xFF4FE0CB);
   static const Color _textSecondary = Color(0xFF8A94A6);
 
   @override
@@ -70,7 +69,7 @@ class AuthPage extends StatelessWidget {
                                     ),
                                     const SizedBox(width: 6),
                                     const Text(
-                                      '欢迎登录',
+                                      '欢迎使用',
                                       style: TextStyle(fontSize: 16, color: _textSecondary),
                                     ),
                                   ],

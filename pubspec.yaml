@@ -33,6 +33,11 @@ dependencies:
 
   cupertino_icons: ^1.0.8
   dio: ^5.7.0
+  web: ^1.1.0
+
+  # 高德地图（原生 Android / iOS，Web 端使用条件导入降级）
+  amap_flutter_map: ^3.0.0
+  amap_flutter_base: ^3.0.0
 
 dev_dependencies:
   flutter_test:

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../../core/constants/api_config.dart';
+import '../../core/utils/fingerprint.dart';
 
 /// 统一 HTTP 请求服务
 ///
@@ -100,10 +101,24 @@ class _HttpInterceptor extends Interceptor {
       options.headers['Authorization'] = 'Bearer ${HttpService.token}';
     }
 
-    // 开发环境打印请求日志
+    // 添加浏览器指纹和 UserAgent
+    final fingerprint = Fingerprint.collectDeviceInfo();
+    options.headers['X-Fingerprint'] = fingerprint;
+    options.headers['X-UA'] = Fingerprint.getUserAgent();
+
     if (ApiConfig.isDev) {
       // ignore: avoid_print
-      print('🌐 [${options.method}] ${options.uri}');
+      print('══════════ REQUEST ══════════');
+      // ignore: avoid_print
+      print('🌐 [${options.method}] ${options.uri} ${options.headers}');
+      // ignore: avoid_print
+      print('🔑 Fingerprint: $fingerprint');
+      if (options.data != null) {
+        // ignore: avoid_print
+        print('📦 Body: ${options.data}');
+      }
+      // ignore: avoid_print
+      print('═════════════════════════════');
     }
 
     handler.next(options);
@@ -113,7 +128,15 @@ class _HttpInterceptor extends Interceptor {
   void onResponse(Response<dynamic> response, ResponseInterceptorHandler handler) {
     if (ApiConfig.isDev) {
       // ignore: avoid_print
+      print('══════════ RESPONSE ══════════');
+      // ignore: avoid_print
       print('✅ [${response.statusCode}] ${response.requestOptions.uri}');
+      if (response.data != null) {
+        // ignore: avoid_print
+        print('📦 Data: ${response.data}');
+      }
+      // ignore: avoid_print
+      print('══════════════════════════════');
     }
     handler.next(response);
   }
@@ -122,10 +145,20 @@ class _HttpInterceptor extends Interceptor {
   void onError(DioException err, ErrorInterceptorHandler handler) {
     if (ApiConfig.isDev) {
       // ignore: avoid_print
-      print('❌ [${err.response?.statusCode}] ${err.requestOptions.uri}: ${err.message}');
+      print('══════════ ERROR ══════════');
+      // ignore: avoid_print
+      print('❌ [${err.response?.statusCode}] ${err.requestOptions.uri}');
+      // ignore: avoid_print
+      print('Message: ${err.message}');
+      if (err.response?.data != null) {
+        // ignore: avoid_print
+        print('📦 Data: ${err.response?.data}');
+      }
+      // ignore: avoid_print
+      print('═══════════════════════════');
     }
 
-    // 统一错误处理
+    // 统一错误处理：仅在无业务错误消息时覆盖
     switch (err.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
@@ -144,6 +177,22 @@ class _HttpInterceptor extends Interceptor {
           type: err.type,
           message: '网络连接失败，请检查网络设置',
         );
+        break;
+      case DioExceptionType.badResponse:
+        // 尝试提取服务端返回的错误消息
+        final data = err.response?.data;
+        String? serverMsg;
+        if (data is Map<String, dynamic>) {
+          serverMsg = data['message'] as String?;
+        }
+        if (serverMsg != null && serverMsg.isNotEmpty) {
+          err = DioException(
+            requestOptions: err.requestOptions,
+            response: err.response,
+            type: err.type,
+            message: serverMsg,
+          );
+        }
         break;
       default:
         break;

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'presentation/pages/auth_page.dart';
 import 'presentation/pages/login_page.dart';
 import 'presentation/pages/register_page.dart';
+import 'presentation/pages/home_page.dart';
 import 'core/routes/app_routes.dart';
 
 void main() {
@@ -28,6 +29,7 @@ class MyApp extends StatelessWidget {
         AppRoutes.auth: (context) => const AuthPage(),
         AppRoutes.login: (context) => const LoginPage(),
         AppRoutes.register: (context) => const RegisterPage(),
+        AppRoutes.home: (context) => const HomePage(),
       },
       debugShowCheckedModeBanner: false,
     );

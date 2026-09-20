@@ -1,8 +1,24 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- ==================== 高德地图所需权限 ==================== -->
+    <!-- 网络定位（使用高德地图必须） -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- 精确/粗略定位 -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- 读写外部存储（缓存地图瓦片，Android 9 及以下需要） -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
     <application
         android:label="tms_app"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- 高德地图 API Key（androidKey 也可在 Dart 层 AMapApiKey 传入，二选一） -->
+        <meta-data
+            android:name="com.amap.api.v2.apikey"
+            android:value="YOUR_ANDROID_AMAP_KEY" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
